@@ -1,0 +1,6 @@
+order_id,order_time,product,category,quantity,unit_price,customer_city
+ORD-006,2026-10-02 08:40:00,Keyboard,Electronics,1,650000,Ha Noi
+ORD-007,2026-10-02 11:05:00,Water Bottle,Lifestyle,2,180000,Da Nang
+ORD-008,2026-10-02 13:30:00,Monitor Arm,Home Office,1,890000,Ho Chi Minh City
+ORD-009,2026-10-02 15:15:00,Pen Set,Stationery,4,75000,Can Tho
+ORD-010,2026-10-02 18:20:00,Webcam,Electronics,1,720000,Hue
