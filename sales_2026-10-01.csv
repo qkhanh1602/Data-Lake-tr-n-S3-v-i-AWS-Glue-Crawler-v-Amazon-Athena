@@ -1,6 +1,0 @@
-order_id,order_time,product,category,quantity,unit_price,customer_city
-ORD-001,2026-10-01 08:15:00,Laptop Stand,Accessories,2,250000,Ho Chi Minh City
-ORD-002,2026-10-01 09:05:00,Wireless Mouse,Electronics,1,320000,Da Nang
-ORD-003,2026-10-01 10:20:00,USB C Cable,Electronics,3,120000,Ha Noi
-ORD-004,2026-10-01 14:10:00,Notebook,Stationery,5,45000,Can Tho
-ORD-005,2026-10-01 16:45:00,Desk Lamp,Home Office,1,410000,Hue
