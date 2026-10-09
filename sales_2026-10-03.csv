@@ -1,6 +1,0 @@
-order_id,order_time,product,category,quantity,unit_price,customer_city
-ORD-011,2026-10-03 07:55:00,Headphones,Electronics,1,980000,Ha Noi
-ORD-012,2026-10-03 09:45:00,Mouse Pad,Accessories,2,95000,Da Nang
-ORD-013,2026-10-03 12:10:00,Office Chair,Home Office,1,2350000,Ho Chi Minh City
-ORD-014,2026-10-03 14:25:00,Sticky Notes,Stationery,6,35000,Hue
-ORD-015,2026-10-03 19:05:00,Portable SSD,Electronics,1,1750000,Can Tho
