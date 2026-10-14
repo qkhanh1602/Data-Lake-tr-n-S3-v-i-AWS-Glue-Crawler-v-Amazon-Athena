@@ -1,0 +1,9 @@
+Truy vấn trên bảng CSV (sales):
+SELECT category, SUM(quantity) AS total_qty 
+FROM sales 
+GROUP BY category;
+
+Truy vấn trên bảng Parquet (sales_parquet):
+SELECT category, SUM(quantity) AS total_qty 
+FROM sales_parquet 
+GROUP BY category;
