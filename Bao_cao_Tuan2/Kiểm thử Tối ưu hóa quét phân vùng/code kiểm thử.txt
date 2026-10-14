@@ -1,0 +1,6 @@
+Quét toàn bộ bảng:
+SELECT COUNT(*) FROM sales;
+
+Quét có lọc phân vùng ngày 01:
+SELECT COUNT(*) FROM sales 
+WHERE year = '2026' AND month = '10' AND day = '01';
