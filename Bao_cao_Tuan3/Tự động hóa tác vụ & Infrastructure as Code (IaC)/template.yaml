@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'CloudFormation Template cho he thong Daily Data Lake (S3, Glue, Athena)'
+
+Parameters:
+  ProjectTag:
+    Type: String
+    Default: 'DailyDataLake'
+  OwnerTag:
+    Type: String
+    Default: '24112051-24110252'
+
+Resources:
+  # 1. AWS Glue Database Metadata
+  DataLakeGlueDatabase:
+    Type: AWS::Glue::Database
+    Properties:
+      CatalogId: !Ref 'AWS::AccountId'
+      DatabaseInput:
+        Name: 'daily_datalake_db'
+        Description: 'Database metadata tap trung cho Daily Data Lake'
+
+  # 2. Amazon Athena Workgroup kiem soat chi phi
+  DataLakeAthenaWorkgroup:
+    Type: AWS::Athena::Workgroup
+    Properties:
+      Name: 'daily-datalake-wg'
+      Description: 'Athena Workgroup cho du an Daily Data Lake'
+      State: ENABLED
+      WorkgroupConfiguration:
+        BytesScannedCutoffPerQuery: 104857600 # 100 MB
+        EnforceWorkgroupConfiguration: true
+        PublishCloudWatchMetricsEnabled: true
+        ResultConfiguration:
+          OutputLocation: !Sub 's3://daily-datalake-${OwnerTag}-2026/athena-results/'
+          EncryptionConfiguration:
+            EncryptionOption: 'SSE_S3'
+      Tags:
+        - Key: 'Project'
+          Value: !Ref ProjectTag
+        - Key: 'Owner'
+          Value: !Ref OwnerTag
