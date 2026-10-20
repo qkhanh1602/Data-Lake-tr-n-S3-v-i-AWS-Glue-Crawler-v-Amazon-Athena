@@ -27,3 +27,57 @@ Trước khi tiến hành xóa các tài nguyên trên AWS Management Console, n
 | **4** | **Amazon S3** | Bucket: `daily-datalake-24112051-24110252-2026` | 1. Chọn bucket $\rightarrow$ bấm nút **Empty** $\rightarrow$ nhập `permanently delete` để xóa toàn bộ objects trong `raw/`, `processed/`, `athena-results/`.<br/>2. Chọn lại bucket đã rỗng $\rightarrow$ bấm **Delete** $\rightarrow$ nhập tên bucket để xác nhận xóa. | Đã làm rỗng & Xóa bucket |
 | **5** | **Amazon VPC** | VPC: `daily-datalake-vpc` (`10.10.0.0/16`) | 1. Vào **VPC** $\rightarrow$ **Your VPCs** $\rightarrow$ chọn `daily-datalake-vpc` $\rightarrow$ **Actions** $\rightarrow$ **Delete VPC**.<br/>2. Giữ nguyên **Default VPC** mặc định của hệ thống. | Đã xóa VPC dự án |
 | **6** | **AWS Learner Lab** | Phiên làm việc (Lab Session) | Quay lại cổng học tập AWS Academy $\rightarrow$ bấm nút **End Lab** để đóng phiên thực hành và ngắt toàn bộ tiến trình tính phí. | Trạng thái Lab: Stopped |
+
+---
+
+## 3. Kịch bản tự động hóa dọn dẹp bằng AWS CLI (Automated Cleanup Script)
+
+Bên cạnh thao tác trên giao diện Console, nhóm xây dựng kịch bản dòng lệnh Bash sử dụng AWS CLI để có thể dọn dẹp nhanh toàn bộ tài nguyên trên AWS CloudShell:
+
+```bash
+#!/bin/bash
+# ==============================================================================
+# KỊCH BẢN TỰ ĐỘNG DỌN DẸP TÀI NGUYÊN DỰ ÁN DAILY DATA LAKE
+# Region: us-east-1 | Nhóm: 24110251 - 24110252
+# ==============================================================================
+
+REGION="us-east-1"
+BUCKET_NAME="daily-datalake-24112051-24110252-2026"
+GLUE_DB="daily_datalake_db"
+GLUE_CRAWLER="daily-sales-crawler"
+ATHENA_WG="daily-datalake-wg"
+CW_ALARM="daily-datalake-high-scan-alert"
+
+echo "1. Xoa CloudWatch Alarm..."
+aws cloudwatch delete-alarms --alarm-names $CW_ALARM --region $REGION
+
+echo "2. Xoa AWS Glue Crawler va Glue Database..."
+aws glue delete-crawler --name $GLUE_CRAWLER --region $REGION
+aws glue delete-database --name $GLUE_DB --region $REGION
+
+echo "3. Xoa Amazon Athena Workgroup (Recursive)..."
+aws athena delete-work-group --work-group $ATHENA_WG --recursive-delete-option --region $REGION
+
+echo "4. Lam rong (Empty) va xoa S3 Bucket..."
+aws s3 rm s3://$BUCKET_NAME --recursive --region $REGION
+aws s3 rb s3://$BUCKET_NAME --force --region $REGION
+
+echo "Hoan tat qua trinh don dep tai nguyen Data Lake!"
+```
+
+---
+
+## 4. Checklist kiểm tra chống thất thoát chi phí sau dọn dẹp (Post-Cleanup Audit)
+
+Sau khi hoàn tất quy trình xóa, nhóm đã rà soát lại toàn bộ tài khoản tại Region `us-east-1` để đảm bảo không còn tài nguyên ngầm gây tốn chi phí:
+
+- [x] **Amazon S3:** Danh sách Buckets không còn bucket `daily-datalake-24112051-24110252-2026`.
+- [x] **AWS Glue:** Danh sách Databases và Crawlers đều trống (`0`).
+- [x] **Amazon Athena:** Workgroup `daily-datalake-wg` đã bị xóa, chỉ còn lại workgroup `primary` mặc định.
+- [x] **Amazon CloudWatch:** Danh sách Alarms tại `us-east-1` hiển thị `0` alarm.
+- [x] **Amazon EC2 & VPC:** 
+  - Running Instances = `0`.
+  - NAT Gateways = `0`.
+  - Elastic IPs = `0`.
+- [x] **AWS IAM:** Giữ nguyên `LabRole` mặc định của phòng lab, không có IAM User hay Access Key phát sinh.
+- [x] **AWS Academy Learner Lab:** Đã chuyển sang trạng thái dừng hoàn toàn (**End Lab**).
