@@ -1,0 +1,27 @@
+# QUY TRÌNH VÀ KỊCH BẢN DỌN DẸP TÀI NGUYÊN (RESOURCE CLEANUP)
+
+- **Đề tài:** Xây dựng Data Lake phân vùng theo ngày trên AWS
+- **Sinh viên thực hiện:** Nguyễn Quốc Khánh (24110251) – Võ Cao Quốc Khánh (24110252)
+- **Region:** US East (N. Virginia) `us-east-1`
+
+---
+
+## 1. Nguyên tắc an toàn trước khi thực hiện dọn dẹp (Pre-Cleanup Checklist)
+
+Trước khi tiến hành xóa các tài nguyên trên AWS Management Console, nhóm đã thực hiện kiểm tra và đảm bảo các điều kiện tiên quyết sau:
+- [x] Đã hoàn thành quay Video Demo hoạt động thực tế của toàn bộ hệ thống Data Lake.
+- [x] Đã chụp đầy đủ toàn bộ ảnh minh chứng cho cả 4 tuần thực hành.
+- [x] Đã sao lưu toàn bộ file dữ liệu CSV mẫu (`day=01` đến `day=04`), các câu lệnh truy vấn SQL, mẫu CloudFormation (`template.yaml`) và báo cáo lên GitHub Repository của nhóm.
+
+---
+
+## 2. Quy trình dọn dẹp tài nguyên theo thứ tự phụ thuộc (Step-by-Step Procedure)
+
+Để tránh lỗi xung đột phụ thuộc giữa các dịch vụ (ví dụ: không thể xóa S3 bucket khi bên trong còn chứa objects hoặc đang có tiến trình ghi log), nhóm thực hiện dọn dẹp theo thứ tự từ tầng Giám sát $\rightarrow$ Truy vấn $\rightarrow$ Metadata $\rightarrow$ Lưu trữ $\rightarrow$ Hạ tầng mạng:
+
+| Bước | Dịch vụ AWS | Tên tài nguyên cần dọn dẹp | Thao tác thực hiện chi tiết trên AWS Console | Kết quả xác nhận |
+| :---: | :--- | :--- | :--- | :---: |
+| **1** | **Amazon CloudWatch** | Alarm: `daily-datalake-high-scan-alert`<br/>Log group: `/aws-glue/crawlers` | 1. Vào **CloudWatch** $\rightarrow$ **Alarms** $\rightarrow$ chọn `daily-datalake-high-scan-alert` $\rightarrow$ **Actions** $\rightarrow$ **Delete**.<br/>2. Vào **Logs** $\rightarrow$ **Log groups** $\rightarrow$ chọn `/aws-glue/crawlers` $\rightarrow$ **Actions** $\rightarrow$ **Delete log group(s)**. | Đã xóa hoàn toàn |
+| **2** | **Amazon Athena** | Workgroup: `daily-datalake-wg` | Vào **Athena** $\rightarrow$ **Workgroups** $\rightarrow$ chọn `daily-datalake-wg` $\rightarrow$ chọn **Delete** (xác nhận xóa workgroup sau khi đã dừng toàn bộ truy vấn). | Đã xóa hoàn toàn |
+| **3** | **AWS Glue** | Crawler: `daily-sales-crawler`<br/>Database: `daily_datalake_db` | 1. Vào **AWS Glue** $\rightarrow$ **Crawlers** $\rightarrow$ chọn `daily-sales-crawler` $\rightarrow$ **Action** $\rightarrow$ **Delete crawler**.<br/>2. Vào **Databases** $\rightarrow$ chọn `daily_datalake_db` $\rightarrow$ **Delete** (tự động xóa kèm 2 bảng `sales` và `sales_parquet`). | Đã xóa hoàn toàn |
+| **4** | **Amazon S3** | Bucket: `daily-datalake-24112051-24110252-2026` | 1. Chọn bucket $\rightarrow$ bấm nút **Empty** $\rightarrow$ nhập `permanently delete` để xóa toàn bộ objects trong `raw/`, `processed/`, `athena-results/`.<br/>2. Chọn lại bucket đã rỗng $\rightarrow$ bấm **Delete** $\rightarrow$ nhập tên bucket để xác nhận xóa.
