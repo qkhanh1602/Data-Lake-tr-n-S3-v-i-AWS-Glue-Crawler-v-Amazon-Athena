@@ -1,0 +1,62 @@
+# BÁO CÁO ĐÁNH GIÁ VÀ TỔNG KẾT TỐI ƯU HÓA CHI PHÍ DATA LAKE
+
+- **Đề tài:** Xây dựng Data Lake phân vùng theo ngày trên AWS
+- **Sinh viên thực hiện:** Nguyễn Quốc Khánh (24110251) – Võ Cao Quốc Khánh (24110252)
+- **Region:** US East (N. Virginia) `us-east-1`
+
+---
+
+## 1. Đánh giá hiệu quả tối ưu hóa qua số liệu thực nghiệm trên AWS Athena
+
+Cơ chế tính phí của Amazon Athena dựa trực tiếp trên tổng dung lượng dữ liệu bị quét (**Data Scanned**), với đơn giá tiêu chuẩn tại Region `us-east-1` là **$5.00 / 1 TB** dữ liệu quét. Nhóm đã thực hiện 2 kỹ thuật tối ưu hóa cốt lõi và thu được kết quả đo đạc thực tế như sau:
+
+### 1.1. Tối ưu hóa bằng cơ chế Phân vùng Hive-style (Partition Pruning)
+| Kịch bản truy vấn | Câu lệnh SQL thực thi | Kết quả dòng | Thời gian chạy | Dung lượng quét (Data Scanned) | Tỷ lệ tiết kiệm |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Chưa tối ưu (Quét toàn bảng)** | `SELECT COUNT(*) FROM sales;` | 15 dòng | 755 ms | **1.22 KB** | Mức cơ sở (0%) |
+| **Đã tối ưu (Lọc theo Partition)** | `SELECT COUNT(*) FROM sales WHERE year='2026' AND month='10' AND day='01';` | 5 dòng | 874 ms | **0.41 KB** | **Giảm 66.39%** |
+
+* **Đánh giá:** Nhờ tổ chức thư mục S3 theo cấu trúc `year=2026/month=10/day=01..04/` và cập nhật metadata vào Glue Data Catalog, Athena chỉ đọc đúng phân vùng ngày được yêu cầu thay vì quét toàn bộ bucket, giúp cắt giảm ngay lập tức **2/3 dung lượng quét**.
+
+### 1.2. Tối ưu hóa bằng chuyển đổi định dạng lưu trữ (CSV sang Parquet nén Snappy)
+| Định dạng bảng | Câu lệnh SQL thực thi | Kiểu lưu trữ | Thời gian chạy | Dung lượng quét (Data Scanned) | Tỷ lệ tiết kiệm |
+| :--- | :--- | :---: | :---: | :---: | :---: |
+| **Bảng `sales` (CSV)** | `SELECT category, SUM(quantity) AS total_qty FROM sales GROUP BY category;` | Theo dòng (Row-based) | 811 ms | **1.22 KB** | Mức cơ sở (0%) |
+| **Bảng `sales_parquet` (Parquet)** | `SELECT category, SUM(quantity) AS total_qty FROM sales_parquet GROUP BY category;` | Theo cột (Columnar + Snappy) | 899 ms | **0.49 KB** | **Giảm 59.84%** |
+
+* **Đánh giá:** Với file CSV, Athena buộc phải đọc toàn bộ 7 cột của mọi dòng dữ liệu. Khi chuyển sang Parquet nén Snappy thông qua lệnh CTAS, Athena chỉ trích xuất đúng 2 cột `category` và `quantity`, giúp giảm gần **60% dung lượng quét**.
+
+---
+
+## 2. Bài toán hiệu quả kinh tế khi mở rộng quy mô (Enterprise Scale Projection)
+
+Khi kết hợp đồng thời cả **Partition Pruning** (lọc theo ngày trong tháng) và **Định dạng Parquet nén Snappy**, tổng lượng dữ liệu bị quét trên mỗi truy vấn giảm trung bình từ **80% – 90%**. Dưới đây là bảng phóng chiếu chi phí cho 1,000 lượt truy vấn phân tích mỗi tháng (đơn giá $5.00 / TB):
+
+| Quy mô dữ liệu gốc | Chi phí 1,000 queries trên CSV (Không Partition) | Chi phí 1,000 queries trên Parquet (Có Partition, giảm ~85% scan) | Chi phí tiết kiệm được mỗi tháng |
+| :--- | :---: | :---: | :---: |
+| **10 GB** | $50.00 USD | $7.50 USD | **$42.50 USD** |
+| **100 GB** | $500.00 USD | $75.00 USD | **$425.00 USD** |
+| **1 TB (1,000 GB)** | $5,000.00 USD | $750.00 USD | **$4,250.00 USD** |
+
+---
+
+## 3. Các cơ chế kiểm soát và chống thất thoát chi phí đã áp dụng
+
+1. **Giới hạn trần dữ liệu quét trên Athena Workgroup (`daily-datalake-wg`):** Thiết lập `Data scanned limit = 100 MB` (1000 MB trên Console v3) giúp tự động hủy các câu lệnh SQL viết sai hoặc quét vượt ngưỡng cho phép.
+2. **Cảnh báo sớm trên Amazon CloudWatch (`daily-datalake-high-scan-alert`):** Theo dõi metric `ProcessedBytes` và phát cảnh báo ngay khi tổng lượng dữ liệu quét trong 5 phút chạm mốc **50 MB** (52,428,800 Bytes).
+3. **Tự động dọn dẹp rác lưu trữ với S3 Lifecycle Rule (`cleanup-athena-results`):** Tự động xóa (Expire) các file kết quả truy vấn tạm thời trong thư mục `athena-results/` sau **7 ngày**, ngăn chặn chi phí lưu trữ S3 tăng tích lũy theo thời gian.
+4. **Kiến trúc Serverless & Tối giản hạ tầng mạng:** Sử dụng hoàn toàn các dịch vụ Serverless (S3, Glue, Athena) và cấu hình `daily-datalake-vpc` ở chế độ `VPC only` (không dùng NAT Gateway, không chạy EC2, không dùng Elastic IP), giữ chi phí hạ tầng mạng ở mức **$0.00**.
+
+---
+
+## 4. Tổng kết chi phí vận hành thực tế toàn dự án (Tuần 1 – Tuần 4)
+
+| Hạng mục dịch vụ AWS | Khối lượng sử dụng trong 4 tuần | Chi phí ước tính (USD) |
+| :--- | :--- | :---: |
+| **Amazon S3** | Lưu trữ < 50 KB (CSV, Parquet, Query Results) & ~200 Requests | ~$0.0012 |
+| **AWS Glue Data Catalog** | 1 Database (`daily_datalake_db`), 2 Tables, 8 Partitions (Miễn phí 1 triệu objects đầu) | $0.0000 |
+| **AWS Glue Crawler** | 2 lần chạy thực tế (2 DPUs $\times$ 10 phút tối thiểu/lần) | ~$0.2934 |
+| **Amazon Athena** | ~30 câu lệnh truy vấn kiểm thử và phân tích (tính theo mức tối thiểu 10 MB/query) | ~$0.0015 |
+| **Amazon CloudWatch** | 1 Metric Alarm (`daily-datalake-high-scan-alert`) & Logs/Metrics cơ bản | ~$0.0200 |
+| **Amazon VPC** | 1 VPC (`daily-datalake-vpc` - chế độ VPC only, không NAT Gateway/EC2) | $0.0000 |
+| **TỔNG CỘNG** | **Tổng chi phí toàn bộ dự án (4 tuần)** | **~$0.32 USD** |
